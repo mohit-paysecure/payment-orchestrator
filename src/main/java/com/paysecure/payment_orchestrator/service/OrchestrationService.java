@@ -1,42 +1,71 @@
 package com.paysecure.payment_orchestrator.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jayway.jsonpath.JsonPath;
+import com.paysecure.payment_orchestrator.constants.AuthType;
 import com.paysecure.payment_orchestrator.entity.ProviderConfigEntity;
 import com.paysecure.payment_orchestrator.repo.ProviderConfigRepository;
 import com.paysecure.payment_orchestrator.service.auth.AuthStrategy;
 import com.paysecure.payment_orchestrator.service.template.TemplateEngineService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @Service
+@RequiredArgsConstructor
 public class OrchestrationService {
 
-    @Autowired
-    private ProviderConfigRepository repo;
-    @Autowired private Map<String, AuthStrategy> authStrategies;
-    @Autowired private TemplateEngineService templateEngine;
+    private final ProviderConfigRepository repo;
+    private final Map<String, AuthStrategy> authStrategies;
+    private final TemplateEngineService templateEngine;
+    private final RestTemplate restTemplate = new RestTemplate();
 
     public ResponseEntity<?> process(String providerName, Map<String, Object> input) {
-        ProviderConfigEntity config = repo.findByName(providerName);
-        String payload = templateEngine.render(config.getRequestTemplate(), input);
+        try {
+            ProviderConfigEntity config = repo.findByName(providerName.toUpperCase());
 
-        HttpHeaders headers = new HttpHeaders();
-        AuthStrategy strategy = authStrategies.get(config.getAuthType().name());
-        headers = strategy.applyAuth(headers, config);
+            String payload = templateEngine.render(config.getRequestTemplate(), input);
+            HttpHeaders headers = new HttpHeaders();
 
-        HttpEntity<String> entity = new HttpEntity<>(payload, headers);
-        RestTemplate restTemplate = new RestTemplate();
-        ResponseEntity<String> response = restTemplate.exchange(config.getBaseUrl(), HttpMethod.POST, entity, String.class);
+            if (!config.getAuthType().equals(AuthType.NONE)) {
+                AuthStrategy strategy = authStrategies.get(config.getAuthType().name());
+                headers = strategy.applyAuth(headers, config);
+            }
 
-        // Later: use JsonPath to map response to internal format using config.getResponseMapping()
+            headers.setContentType(MediaType.APPLICATION_JSON);
 
-        return response;
+            HttpEntity<String> request = new HttpEntity<>(payload, headers);
+
+            ResponseEntity<String> response = restTemplate.exchange(
+                    config.getBaseUrl(),
+                    HttpMethod.POST,
+                    request,
+                    String.class
+            );
+
+            Map<String, Object> fullBody = new ObjectMapper().readValue(response.getBody(), new TypeReference<>() {
+            });
+            Map<String, Object> mapped = mapResponse(fullBody, config.getResponseMapping());
+
+            return ResponseEntity.ok(mapped);
+        } catch (Exception e) {
+            // Log the error (not shown here for brevity)
+            return ResponseEntity.status(500).body("An error occurred while processing the request: " + e.getMessage());
+        }
+    }
+
+    private Map<String, Object> mapResponse(Map<String, Object> body, Map<String, Object> mappingConfig) {
+        Map<String, Object> result = new HashMap<>();
+        mappingConfig.forEach((key, jsonPath) -> {
+            Object value = JsonPath.read(body, jsonPath.toString());
+            result.put(key, value);
+        });
+        return result;
     }
 }
 
