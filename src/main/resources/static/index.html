@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>JSON to POJO Mapper</title>
+    <style>
+        body {
+          font-family: Arial, sans-serif;
+          display: flex;
+          padding: 20px;
+          gap: 20px;
+        }
+        #left, #right {
+          width: 45%;
+          border: 1px solid #ccc;
+          padding: 10px;
+          min-height: 400px;
+        }
+        textarea {
+          width: 100%;
+          height: 100px;
+        }
+        ul {
+          list-style-type: none;
+          padding: 0;
+        }
+        li {
+          padding: 8px;
+          background: #eee;
+          margin: 5px 0;
+          cursor: grab;
+        }
+        .droppable {
+          min-height: 30px;
+          background-color: #f9f9f9;
+          border: 1px dashed #999;
+          margin: 5px 0;
+          padding: 8px;
+        }
+        .droppable.hover {
+          background-color: #cceeff;
+        }
+        button {
+          margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+<div id="left">
+    <h3>1. Paste JSON Data</h3>
+    <textarea id="jsonInput" placeholder="Paste JSON here"></textarea>
+    <button onclick="parseJSON()">Parse JSON</button>
+
+    <h4>JSON Keys</h4>
+    <ul id="jsonKeys"></ul>
+</div>
+
+<div id="right">
+    <h3>POJO Fields (from API)</h3>
+    <ul id="pojoFields"></ul>
+    <button onclick="submitMapping()">Submit Mapping</button>
+</div>
+
+<script>
+    let mappings = {};
+
+    // Fetch POJO fields from API
+    async function loadPojoFields() {
+      try {
+        const response = await fetch('http://localhost:8081/api/payment/fields/flat');
+        const fields = await response.json();
+
+        const pojoFieldsEl = document.getElementById('pojoFields');
+        pojoFieldsEl.innerHTML = '';
+
+        fields.forEach(field => {
+          const li = document.createElement('li');
+          li.innerHTML = `
+            <strong>${field}</strong>
+            <div class="droppable" data-pojo="${field}">Drop JSON Key Here</div>
+          `;
+          pojoFieldsEl.appendChild(li);
+        });
+
+        enableDroppable();
+      } catch (error) {
+        console.error('Failed to load POJO fields:', error);
+        alert('Error loading POJO fields from API');
+      }
+    }
+
+    // Parse JSON keys and render them
+    function parseJSON() {
+      const input = document.getElementById('jsonInput').value;
+      try {
+        const parsed = JSON.parse(input);
+        const keys = extractKeys(parsed);
+
+        const jsonKeysEl = document.getElementById('jsonKeys');
+        jsonKeysEl.innerHTML = '';
+
+        keys.forEach(key => {
+          const li = document.createElement('li');
+          li.textContent = key;
+          li.draggable = true;
+          li.dataset.key = key;
+          li.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('text/plain', key);
+          });
+          jsonKeysEl.appendChild(li);
+        });
+      } catch (e) {
+        alert('Invalid JSON');
+      }
+    }
+
+    // Recursively extract all nested keys in dot notation
+    function extractKeys(obj, prefix = '') {
+      let keys = [];
+      for (let key in obj) {
+        const fullKey = prefix ? `${prefix}.${key}` : key;
+        if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
+          keys = keys.concat(extractKeys(obj[key], fullKey));
+        } else {
+          keys.push(fullKey);
+        }
+      }
+      return keys;
+    }
+
+// Drag & Drop logic
+    function enableDroppable() {
+          dropArea.addEventListener('drop', (e) => {
+          e.preventDefault();
+          dropArea.classList.remove('hover');
+          const jsonKey = e.dataTransfer.getData('text/plain');
+          const pojoField = dropArea.dataset.pojo;
+
+          // Save the mapping
+          mappings[pojoField] = jsonKey;
+
+          // Display with remove button
+          dropArea.innerHTML = `
+            ${jsonKey}
+            <button style="float:right;" onclick="removeMapping('${pojoField}', this)">❌</button>
+          `;
+        });
+    }
+
+      function removeMapping(pojoField, buttonEl) {
+        delete mappings[pojoField];
+        const dropArea = buttonEl.parentElement;
+        dropArea.innerHTML = 'Drop JSON Key Here';
+      }
+
+
+
+
+    // // Drag & Drop logic
+    // function enableDroppable() {
+    //   const droppables = document.querySelectorAll('.droppable');
+    //   droppables.forEach(dropArea => {
+    //     dropArea.addEventListener('dragover', (e) => {
+    //       e.preventDefault();
+    //       dropArea.classList.add('hover');
+    //     });
+
+    //     dropArea.addEventListener('dragleave', () => {
+    //       dropArea.classList.remove('hover');
+    //     });
+
+    //     dropArea.addEventListener('drop', (e) => {
+    //       e.preventDefault();
+    //       dropArea.classList.remove('hover');
+    //       const jsonKey = e.dataTransfer.getData('text/plain');
+    //       const pojoField = dropArea.dataset.pojo;
+
+    //       dropArea.textContent = jsonKey;
+    //       mappings[pojoField] = jsonKey;
+    //     });
+    //   });
+    // }
+
+
+
+    // Submit mapping to API
+    async function submitMapping() {
+      try {
+        const response = await fetch('http://localhost:8081/api/orchestrate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(mappings)
+        });
+
+        if (response.ok) {
+          alert('Mapping submitted successfully!');
+        } else {
+          alert('Failed to submit mapping');
+        }
+      } catch (error) {
+        console.error('Error submitting mapping:', error);
+        alert('Error submitting mapping');
+      }
+    }
+
+    // Load POJO fields on page load
+    window.onload = loadPojoFields;
+</script>
+</body>
+</html>

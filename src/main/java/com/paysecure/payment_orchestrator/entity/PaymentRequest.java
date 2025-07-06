@@ -15,6 +15,7 @@ public class PaymentRequest {
     private String successCallback;
     private String failureCallback;
     private Map<String, String> extraParam;
+    private String deposit_type ;
 
     // Constructors
     public PaymentRequest() {}
@@ -36,6 +37,14 @@ public class PaymentRequest {
     // Getters and Setters
     public Client getClient() { return client; }
     public void setClient(Client client) { this.client = client; }
+
+    public String getDeposit_type() {
+        return deposit_type;
+    }
+
+    public void setDeposit_type(String deposit_type) {
+        this.deposit_type = deposit_type;
+    }
 
     public Purchase getPurchase() { return purchase; }
     public void setPurchase(Purchase purchase) { this.purchase = purchase; }
@@ -117,6 +126,8 @@ public class PaymentRequest {
 
     // Nested Purchase class
     public static class Purchase {
+
+        private String id;
         private String currency;
         private List<Product> products;
 
@@ -129,6 +140,14 @@ public class PaymentRequest {
 
         public List<Product> getProducts() { return products; }
         public void setProducts(List<Product> products) { this.products = products; }
+
+        public String getId() {
+            return id;
+        }
+
+        public void setId(String id) {
+            this.id = id;
+        }
 
         @Override
         public String toString() {
