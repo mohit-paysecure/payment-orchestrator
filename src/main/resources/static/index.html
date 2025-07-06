@@ -128,30 +128,49 @@
       return keys;
     }
 
-// Drag & Drop logic
-    function enableDroppable() {
-          dropArea.addEventListener('drop', (e) => {
-          e.preventDefault();
-          dropArea.classList.remove('hover');
-          const jsonKey = e.dataTransfer.getData('text/plain');
-          const pojoField = dropArea.dataset.pojo;
+function enableDroppable() {
+  const droppables = document.querySelectorAll('.droppable');
 
-          // Save the mapping
-          mappings[pojoField] = jsonKey;
+  droppables.forEach(dropArea => {
+    dropArea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropArea.classList.add('hover');
+    });
 
-          // Display with remove button
-          dropArea.innerHTML = `
-            ${jsonKey}
-            <button style="float:right;" onclick="removeMapping('${pojoField}', this)">❌</button>
-          `;
-        });
-    }
+    dropArea.addEventListener('dragleave', () => {
+      dropArea.classList.remove('hover');
+    });
 
-      function removeMapping(pojoField, buttonEl) {
-        delete mappings[pojoField];
-        const dropArea = buttonEl.parentElement;
-        dropArea.innerHTML = 'Drop JSON Key Here';
-      }
+    dropArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropArea.classList.remove('hover');
+
+      const jsonKey = e.dataTransfer.getData('text/plain');
+      const pojoField = dropArea.dataset.pojo;
+
+      // Save the mapping
+      mappings[pojoField] = jsonKey;
+
+      // Update drop area content safely (without losing dataset)
+      dropArea.innerHTML = `
+        <span class="mapped-key">${jsonKey}</span>
+        <button class="remove-btn" onclick="removeMapping(this)">❌</button>
+      `;
+    });
+  });
+}
+
+function removeMapping(buttonEl) {
+  const dropArea = buttonEl.parentElement;
+  const pojoField = dropArea.dataset.pojo;
+
+  // Remove mapping from JS object
+  delete mappings[pojoField];
+
+  // Reset drop area
+  dropArea.innerHTML = 'Drop JSON Key Here';
+}
+
 
 
 
@@ -186,7 +205,7 @@
     // Submit mapping to API
     async function submitMapping() {
       try {
-        const response = await fetch('http://localhost:8081/api/orchestrate', {
+        const response = await fetch('http://localhost:8081/api/orchestrate/multipay', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
