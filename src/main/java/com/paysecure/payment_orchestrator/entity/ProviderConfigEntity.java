@@ -2,11 +2,13 @@ package com.paysecure.payment_orchestrator.entity;
 
 import com.paysecure.payment_orchestrator.constants.AuthType;
 import com.paysecure.payment_orchestrator.utility.JpaJsonConverter;
+import com.vladmihalcea.hibernate.type.json.JsonType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Type;
 
 import java.util.Map;
 import java.util.UUID;
@@ -32,12 +34,12 @@ public class ProviderConfigEntity {
 
     private String authKey;
 
+    @Type(JsonType.class)
     @Column(columnDefinition = "jsonb")
-    @Convert(converter = JpaJsonConverter.class)
     private Map<String, Object> requestTemplate;
 
+    @Type(JsonType.class)
     @Column(columnDefinition = "jsonb")
-    @Convert(converter = JpaJsonConverter.class)
     private Map<String, Object> responseMapping;
 }
 

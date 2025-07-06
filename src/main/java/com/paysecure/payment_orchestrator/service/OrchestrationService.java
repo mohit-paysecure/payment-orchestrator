@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
 import com.paysecure.payment_orchestrator.constants.AuthType;
+import com.paysecure.payment_orchestrator.dto.ProviderConfigDTO;
 import com.paysecure.payment_orchestrator.entity.ProviderConfigEntity;
 import com.paysecure.payment_orchestrator.repo.ProviderConfigRepository;
 import com.paysecure.payment_orchestrator.service.auth.AuthStrategy;
@@ -11,6 +12,7 @@ import com.paysecure.payment_orchestrator.service.template.TemplateEngineService
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
@@ -66,6 +68,23 @@ public class OrchestrationService {
             result.put(key, value);
         });
         return result;
+    }
+
+    public ResponseEntity<?> saveProviderConfig(@RequestBody ProviderConfigDTO dto) {
+        try {
+            ProviderConfigEntity entity = new ProviderConfigEntity();
+            entity.setName(dto.getName().toUpperCase());
+            entity.setBaseUrl(dto.getBaseUrl());
+            entity.setAuthType(dto.getAuthType());
+            entity.setAuthKey(dto.getAuthKey());
+            entity.setRequestTemplate(dto.getRequestTemplate());
+            entity.setResponseMapping(dto.getResponseMapping());
+
+            ProviderConfigEntity saved = repo.save(entity);
+            return ResponseEntity.ok(saved);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Failed to save config: " + e.getMessage());
+        }
     }
 }
 
