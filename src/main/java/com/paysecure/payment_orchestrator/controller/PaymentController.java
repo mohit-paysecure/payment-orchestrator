@@ -6,6 +6,14 @@ import org.springframework.web.bind.annotation.*;
 
 import java.lang.reflect.Field;
 import java.util.*;
+//
+//Available Endpoints:
+//
+//GET /api/payment/fields - Returns detailed field information with types for all classes
+//GET /api/payment/fields/flat - Returns a flat list of all field names with dot notation
+//GET /api/payment/fields/structured - Returns a structured view with field types
+//GET /api/payment/fields/json-template - Returns a JSON template with empty values
+//GET /api/payment/fields/validation-rules - Returns validation rules for each field
 
 @RestController
 @RequestMapping("/api/payment")
