@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 
 @Component("BEARER")
 public class BearerAuthStrategy implements AuthStrategy {
-    public HttpHeaders applyAuth(HttpHeaders headers, ProviderConfigEntity config) {
+    public HttpHeaders applyAuth(HttpHeaders headers, ProviderConfigEntity config, String payload) {
         headers.setBearerAuth(config.getAuthKey());
         return headers;
     }

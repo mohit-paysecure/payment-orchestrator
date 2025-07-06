@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 
 @Component("API_KEY")
 public class ApiKeyAuthStrategy implements AuthStrategy {
-    public HttpHeaders applyAuth(HttpHeaders headers, ProviderConfigEntity config) {
+    public HttpHeaders applyAuth(HttpHeaders headers, ProviderConfigEntity config, String payload) {
         headers.set("x-api-key", config.getAuthKey());
         return headers;
     }

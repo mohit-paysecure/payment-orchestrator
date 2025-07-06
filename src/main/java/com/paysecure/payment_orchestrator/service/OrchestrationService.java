@@ -1,9 +1,8 @@
 package com.paysecure.payment_orchestrator.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
-import com.paysecure.payment_orchestrator.constants.AuthType;
 import com.paysecure.payment_orchestrator.dto.ProviderConfigDTO;
 import com.paysecure.payment_orchestrator.entity.ProviderConfigEntity;
 import com.paysecure.payment_orchestrator.repo.ProviderConfigRepository;
@@ -12,7 +11,6 @@ import com.paysecure.payment_orchestrator.service.template.TemplateEngineService
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
@@ -26,23 +24,21 @@ public class OrchestrationService {
     private final Map<String, AuthStrategy> authStrategies;
     private final TemplateEngineService templateEngine;
     private final RestTemplate restTemplate = new RestTemplate();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public ResponseEntity<?> process(String providerName, Map<String, Object> input) {
+    public ResponseEntity<?> process(String providerName, JsonNode inputNode) {
         try {
             ProviderConfigEntity config = repo.findByName(providerName.toUpperCase());
 
-            String payload = templateEngine.render(config.getRequestTemplate(), input);
+            JsonNode templateNode = objectMapper.convertValue(config.getRequestTemplate(), JsonNode.class);
+            String payload = templateEngine.render(templateNode, inputNode);
+
             HttpHeaders headers = new HttpHeaders();
-
-            if (!config.getAuthType().equals(AuthType.NONE)) {
-                AuthStrategy strategy = authStrategies.get(config.getAuthType().name());
-                headers = strategy.applyAuth(headers, config);
-            }
-
+            AuthStrategy strategy = authStrategies.get(config.getAuthType().name());
+            headers = strategy.applyAuth(headers, config, payload);
             headers.setContentType(MediaType.APPLICATION_JSON);
 
             HttpEntity<String> request = new HttpEntity<>(payload, headers);
-
             ResponseEntity<String> response = restTemplate.exchange(
                     config.getBaseUrl(),
                     HttpMethod.POST,
@@ -50,27 +46,32 @@ public class OrchestrationService {
                     String.class
             );
 
-            Map<String, Object> fullBody = new ObjectMapper().readValue(response.getBody(), new TypeReference<>() {
-            });
-            Map<String, Object> mapped = mapResponse(fullBody, config.getResponseMapping());
+            // Parse response body as JsonNode
+            JsonNode fullBody = objectMapper.readTree(response.getBody());
+// Convert response mapping to JsonNode
+            JsonNode responseMapping = objectMapper.convertValue(config.getResponseMapping(), JsonNode.class);
+// Call mapResponse with JsonNode parameters
+            Map<String, Object> mapped = mapResponse(fullBody, responseMapping);
 
             return ResponseEntity.ok(mapped);
         } catch (Exception e) {
-            // Log the error (not shown here for brevity)
             return ResponseEntity.status(500).body("An error occurred while processing the request: " + e.getMessage());
         }
     }
 
-    private Map<String, Object> mapResponse(Map<String, Object> body, Map<String, Object> mappingConfig) {
+    private Map<String, Object> mapResponse(JsonNode body, JsonNode mappingConfig) {
         Map<String, Object> result = new HashMap<>();
-        mappingConfig.forEach((key, jsonPath) -> {
-            Object value = JsonPath.read(body, jsonPath.toString());
+        String jsonString = body.toString();
+        mappingConfig.fields().forEachRemaining(entry -> {
+            String key = entry.getKey();
+            String jsonPath = entry.getValue().asText();
+            Object value = JsonPath.read(jsonString, jsonPath);
             result.put(key, value);
         });
         return result;
     }
 
-    public ResponseEntity<?> saveProviderConfig(@RequestBody ProviderConfigDTO dto) {
+    public ResponseEntity<?> saveProviderConfig(ProviderConfigDTO dto) {
         try {
             ProviderConfigEntity entity = new ProviderConfigEntity();
             entity.setName(dto.getName().toUpperCase());
@@ -79,6 +80,8 @@ public class OrchestrationService {
             entity.setAuthKey(dto.getAuthKey());
             entity.setRequestTemplate(dto.getRequestTemplate());
             entity.setResponseMapping(dto.getResponseMapping());
+            entity.setCustomHeaders(dto.getCustomHeaders());
+            entity.setSignatureConfig(dto.getSignatureConfig());
 
             ProviderConfigEntity saved = repo.save(entity);
             return ResponseEntity.ok(saved);
@@ -87,4 +90,3 @@ public class OrchestrationService {
         }
     }
 }
-

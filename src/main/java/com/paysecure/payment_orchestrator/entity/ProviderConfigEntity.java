@@ -1,7 +1,8 @@
 package com.paysecure.payment_orchestrator.entity;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.paysecure.payment_orchestrator.config.SignatureConfig;
 import com.paysecure.payment_orchestrator.constants.AuthType;
-import com.paysecure.payment_orchestrator.utility.JpaJsonConverter;
 import com.vladmihalcea.hibernate.type.json.JsonType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -36,10 +37,19 @@ public class ProviderConfigEntity {
 
     @Type(JsonType.class)
     @Column(columnDefinition = "jsonb")
-    private Map<String, Object> requestTemplate;
+    private JsonNode requestTemplate;
 
     @Type(JsonType.class)
     @Column(columnDefinition = "jsonb")
-    private Map<String, Object> responseMapping;
+    private JsonNode responseMapping;
+
+    @Column(name = "custom_headers", columnDefinition = "jsonb")
+    @Type(JsonType.class)
+    private JsonNode customHeaders;
+
+    @Column(name = "signature_config", columnDefinition = "jsonb")
+    @Type(JsonType.class)
+    private SignatureConfig signatureConfig;
+
 }
 

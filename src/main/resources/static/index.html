@@ -4,10 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Provider Config Mapper</title>
-    <link
-            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-            rel="stylesheet"
-    />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
     <style>
         body {
             background: #f4f6f9;
@@ -96,7 +93,7 @@
     <div class="row mb-4 g-3 align-items-end">
         <div class="col-md-3">
             <label class="form-label">Provider Name</label>
-            <input type="text" class="form-control" id="providerName" placeholder="e.g. REQRES" />
+            <input type="text" class="form-control" id="providerName" placeholder="e.g. MULTIPAY" />
         </div>
         <div class="col-md-3">
             <label class="form-label">Base URL</label>
@@ -104,19 +101,92 @@
         </div>
         <div class="col-md-2">
             <label class="form-label">Auth Type</label>
-            <select id="authType" class="form-select">
-                <option value="NONE">None</option>
-                <option value="API_KEY">API Key</option>
-                <option value="BEARER">Bearer</option>
-                <option value="SIGNATURE">Signature</option>
-            </select>
+            <select id="authType" class="form-select"></select>
         </div>
         <div class="col-md-3">
             <label class="form-label">Auth Key</label>
-            <input type="text" class="form-control" id="authKey" placeholder="Auth Key" />
+            <input type="text" class="form-control" id="authKey" placeholder="Optional Key or Secret" />
         </div>
         <div class="col-md-1">
             <button class="btn btn-outline-secondary w-100" onclick="resetMapping()">Reset</button>
+        </div>
+    </div>
+
+    <div class="row mb-4" id="signatureConfigSection" style="display: none;">
+        <div class="col-12">
+            <div class="card card-custom p-3">
+                <h6>🔐 Signature Config</h6>
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label>Algorithm</label>
+                        <input type="text" class="form-control" id="sigAlgorithm" placeholder="e.g. HMAC-SHA512" />
+                    </div>
+                    <div class="col-md-3">
+                        <label>Encoding</label>
+                        <select class="form-select" id="sigEncoding">
+                            <option value="base64">Base64</option>
+                            <option value="hex">Hex</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label>Inject Location</label>
+                        <select class="form-select" id="sigInjectLocation">
+                            <option value="body">Body</option>
+                            <option value="header">Header</option>
+                            <option value="query">Query</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label>Field Name</label>
+                        <input type="text" class="form-control" id="sigFieldName" placeholder="e.g. signature" />
+                    </div>
+                    <div class="col-md-3">
+                        <label>Trim Values</label>
+                        <select class="form-select" id="sigTrim">
+                            <option value="true">Yes</option>
+                            <option value="false">No</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label>URL Encode</label>
+                        <select class="form-select" id="sigEncode">
+                            <option value="true">Yes</option>
+                            <option value="false">No</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label>Secret Source</label>
+                        <select class="form-select" id="sigSecretSource">
+                            <option value="authKey">Auth Key</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label>Custom Secret</label>
+                        <input type="text" class="form-control" id="sigCustomSecret" />
+                    </div>
+                    <div class="col-12">
+                        <label>Fields to Sign (comma separated)</label>
+                        <input type="text" class="form-control" id="sigFields" placeholder="e.g. amount,account,external_id" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Headers Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card card-custom p-3">
+                <h6>🧾 Custom Headers</h6>
+                <table class="table table-bordered">
+                    <thead>
+                    <tr><th>Key</th><th>Value</th><th></th></tr>
+                    </thead>
+                    <tbody id="headersTable"></tbody>
+                </table>
+                <button class="btn btn-sm btn-outline-primary" onclick="addHeader()">➕ Add Header</button>
+            </div>
         </div>
     </div>
 
@@ -158,11 +228,11 @@
             fields.forEach(field => {
                 const li = document.createElement('li');
                 li.innerHTML = `
-            <div class="mb-2">
-              <strong>${field}</strong>
-              <div class="droppable" data-pojo="${field}">Drop JSON Key Here</div>
-            </div>
-          `;
+                    <div class="mb-2">
+                      <strong>${field}</strong>
+                      <div class="droppable" data-pojo="${field}">Drop JSON Key Here or Type Static Text</div>
+                    </div>
+                `;
                 pojoFieldsEl.appendChild(li);
             });
 
@@ -171,6 +241,84 @@
             console.error('Failed to fetch POJO fields:', err);
             pojoFieldsEl.innerHTML = '<p class="text-danger">❌ Failed to load fields.</p>';
         }
+    }
+
+    async function loadAuthTypes() {
+        const select = document.getElementById("authType");
+        try {
+            const res = await fetch("http://localhost:8080/api/enums/auth-types");
+            const types = await res.json();
+            select.innerHTML = "";
+            types.forEach(type => {
+                const opt = document.createElement("option");
+                opt.value = type;
+                opt.textContent = type.replace("_", " ");
+                select.appendChild(opt);
+            });
+        } catch (e) {
+            console.error("Failed to load auth types", e);
+            select.innerHTML = `<option value="NONE">Fallback: NONE</option>`;
+        }
+    }
+
+    function enableDroppable() {
+        document.querySelectorAll('.droppable').forEach(drop => {
+            drop.addEventListener('click', () => {
+                const staticVal = prompt("Enter static value (optional):");
+                if (staticVal !== null) {
+                    const pojoKey = drop.dataset.pojo;
+                    // Use static value as JSON key, POJO as value
+                    mappings[staticVal] = `{{${pojoKey}}}`;
+                    drop.innerHTML = `
+                    <span class="mapped-key">${staticVal}</span>
+                    <button class="btn btn-sm btn-link text-danger p-0" onclick="removeMapping(this)">❌</button>
+                `;
+                    updatePreview();
+                }
+            });
+
+            drop.addEventListener('dragover', e => {
+                e.preventDefault();
+                drop.classList.add('hover');
+            });
+
+            drop.addEventListener('dragleave', () => {
+                drop.classList.remove('hover');
+            });
+
+            drop.addEventListener('drop', e => {
+                e.preventDefault();
+                drop.classList.remove('hover');
+
+                const jsonKey = e.dataTransfer.getData('text/plain');
+                const pojoKey = drop.dataset.pojo;
+
+                // Correct mapping: JSON key as key, POJO field as value
+                mappings[jsonKey] = `{{${pojoKey}}}`;
+
+                drop.innerHTML = `
+                <span class="mapped-key">${jsonKey}</span>
+                <button class="btn btn-sm btn-link text-danger p-0" onclick="removeMapping(this)">❌</button>
+            `;
+                updatePreview();
+            });
+        });
+    }
+
+
+
+    function updatePreview() {
+        // preview flat template
+        document.getElementById('previewOutput').textContent = JSON.stringify(mappings, null, 2);
+    }
+
+
+    function removeMapping(button) {
+        const drop = button.parentElement;
+        const pojoKey = drop.dataset.pojo;
+        delete mappings[pojoKey];
+        drop.innerHTML = 'Drop JSON Key Here or Type Static Text';
+        updatePreview();
     }
 
     function parseJSON() {
@@ -211,44 +359,33 @@
         return keys;
     }
 
-    function enableDroppable() {
-        document.querySelectorAll('.droppable').forEach(drop => {
-            drop.addEventListener('dragover', e => {
-                e.preventDefault();
-                drop.classList.add('hover');
+    function unflattenMappings(flat) {
+        const result = {};
+        for (const key in flat) {
+            const parts = key.split('.');
+            let current = result;
+            parts.forEach((part, i) => {
+                if (i === parts.length - 1) {
+                    current[part] = flat[key];
+                } else {
+                    current[part] = current[part] || {};
+                    current = current[part];
+                }
             });
-
-            drop.addEventListener('dragleave', () => {
-                drop.classList.remove('hover');
-            });
-
-            drop.addEventListener('drop', e => {
-                e.preventDefault();
-                drop.classList.remove('hover');
-
-                const key = e.dataTransfer.getData('text/plain');
-                const field = drop.dataset.pojo;
-
-                mappings[field] = `{{${key}}}`;
-                drop.innerHTML = `
-            <span class="mapped-key">${key}</span>
-            <button class="btn btn-sm btn-link text-danger p-0" onclick="removeMapping(this)">❌</button>
-          `;
-                updatePreview();
-            });
-        });
+        }
+        return result;
     }
 
-    function removeMapping(button) {
-        const drop = button.parentElement;
-        const field = drop.dataset.pojo;
-        delete mappings[field];
-        drop.innerHTML = 'Drop JSON Key Here';
-        updatePreview();
-    }
 
-    function updatePreview() {
-        document.getElementById('previewOutput').textContent = JSON.stringify(mappings, null, 2);
+    function addHeader() {
+        const table = document.getElementById("headersTable");
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td><input class="form-control" name="headerKey"/></td>
+            <td><input class="form-control" name="headerValue"/></td>
+            <td><button class="btn btn-sm btn-danger" onclick="this.closest('tr').remove()">❌</button></td>
+        `;
+        table.appendChild(row);
     }
 
     async function submitTemplate() {
@@ -257,10 +394,24 @@
         const authType = document.getElementById('authType').value;
         const authKey = document.getElementById('authKey').value.trim();
 
-        if (!provider || !baseUrl) {
-            alert('Provider name and base URL are required.');
-            return;
-        }
+        const signatureConfig = authType === 'SIGNATURE_IN_BODY' ? {
+            algorithm: document.getElementById('sigAlgorithm').value,
+            encoding: document.getElementById('sigEncoding').value,
+            injectLocation: document.getElementById('sigInjectLocation').value,
+            fieldName: document.getElementById('sigFieldName').value,
+            trimValues: document.getElementById('sigTrim').value === 'true',
+            urlEncode: document.getElementById('sigEncode').value === 'true',
+            secretSource: document.getElementById('sigSecretSource').value,
+            customSecret: document.getElementById('sigCustomSecret').value || null,
+            fields: document.getElementById('sigFields').value.split(',').map(f => f.trim())
+        } : null;
+
+        const customHeaders = {};
+        document.querySelectorAll("#headersTable tr").forEach(row => {
+            const key = row.querySelector("input[name='headerKey']").value.trim();
+            const val = row.querySelector("input[name='headerValue']").value.trim();
+            if (key) customHeaders[key] = val;
+        });
 
         const body = {
             name: provider,
@@ -271,7 +422,9 @@
             responseMapping: {
                 external_order_id: "$.id",
                 created_at: "$.createdAt"
-            }
+            },
+            customHeaders: customHeaders,
+            signatureConfig: signatureConfig
         };
 
         try {
@@ -297,9 +450,18 @@
         mappings = {};
         document.getElementById('previewOutput').textContent = '{}';
         loadPojoFields();
+        loadAuthTypes();
+        document.getElementById('headersTable').innerHTML = '';
     }
 
-    window.onload = loadPojoFields;
+    window.onload = function () {
+        loadPojoFields();
+        loadAuthTypes();
+        document.getElementById('authType').addEventListener('change', function () {
+            document.getElementById('signatureConfigSection').style.display =
+                this.value === 'SIGNATURE_IN_BODY' ? 'block' : 'none';
+        });
+    };
 </script>
 </body>
 </html>

@@ -1,5 +1,7 @@
 package com.paysecure.payment_orchestrator.dto;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.paysecure.payment_orchestrator.config.SignatureConfig;
 import com.paysecure.payment_orchestrator.constants.AuthType;
 import lombok.Data;
 
@@ -11,6 +13,8 @@ public class ProviderConfigDTO {
     private String baseUrl;
     private AuthType authType;
     private String authKey;
-    private Map<String, Object> requestTemplate;
-    private Map<String, Object> responseMapping;
+    private JsonNode requestTemplate;
+    private JsonNode responseMapping;
+    private JsonNode customHeaders;
+    private SignatureConfig signatureConfig;
 }
